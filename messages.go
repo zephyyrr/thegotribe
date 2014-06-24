@@ -44,10 +44,10 @@ func (s Status) Error() string {
 }
 
 const (
-	OK                 = 200
-	CalibrationChanged = 800
-	DisplayChange      = 801
-	TrackerStateChange = 802
+	OK                 Status = 200
+	CalibrationChanged        = 800
+	DisplayChange             = 801
+	TrackerStateChange        = 802
 )
 
 const (

@@ -2,9 +2,12 @@ package thegotribe
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"io"
 	"net"
+	"time"
 )
 
 type EyeTracker struct {
@@ -24,15 +27,22 @@ func Create() (tracker *EyeTracker, err error) {
 
 func New(conn io.ReadWriteCloser) (tracker *EyeTracker) {
 	tracker = &EyeTracker{
-		enc: json.NewEncoder(conn),
-		dec: json.NewDecoder(conn),
+		enc:      json.NewEncoder(conn),
+		dec:      json.NewDecoder(conn),
+		incoming: make(chan Response, 10),
+		OnGaze:   NullFunc,
 	}
 	go tracker.readPackets()
 
 	tracker.Set("version", ProtocolVersion)
 	tracker.Set("push", true)
 
-	// res := tracker.
+	res, err := tracker.Get("heartbeatinterval")
+	heartbeat := 250 * time.Millisecond
+	if err == nil {
+		heartbeat = res.(time.Duration) * time.Millisecond
+	}
+	go tracker.heartbeat(heartbeat)
 
 	return
 }
@@ -49,11 +59,26 @@ func (et *EyeTracker) readPackets() {
 	}
 
 	for {
-		et.dec.Decode(res)
+		err := et.dec.Decode(res)
+		if err != nil {
+			close(et.incoming)
+			return
+		}
 		if val, ok := res.Values["frame"]; ok {
 			mapDecoder.Decode(val)
 			et.OnGaze(frame)
+		} else {
+			et.incoming <- res
 		}
+	}
+}
+
+func (et *EyeTracker) heartbeat(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	for _ = range ticker.C {
+		et.enc.Encode(Request{
+			Category: CategoryHeartbeat,
+		})
 	}
 }
 
@@ -79,7 +104,15 @@ func (et *EyeTracker) SetAll(attributes map[string]interface{}) error {
 
 func (et *EyeTracker) Get(attribute string) (interface{}, error) {
 	res, err := et.GetAll(attribute)
-	return res[attribute], err
+
+	if err != nil {
+		return nil, err
+	} else {
+		if val, ok := res[attribute]; !ok {
+			return val, nil
+		}
+		return nil, errors.New(fmt.Sprintf("Unknown attribute \"%s\"", attribute))
+	}
 }
 
 func (et *EyeTracker) GetAll(attributes ...string) (map[string]interface{}, error) {
@@ -89,7 +122,19 @@ func (et *EyeTracker) GetAll(attributes ...string) (map[string]interface{}, erro
 		Values:   attributes,
 	})
 
-	return (<-et.incoming).Values, nil
+	result, ok := <-et.incoming
+	if !ok {
+		return nil, errors.New("End of Connection")
+	}
+	if result.StatusCode != OK {
+		return result.Values, result.StatusCode
+	}
+
+	return result.Values, nil
 }
 
 type GazeFunc func(Frame)
+
+func NullFunc(f Frame) {
+
+}
