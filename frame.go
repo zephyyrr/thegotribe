@@ -5,10 +5,10 @@ import (
 )
 
 type Frame struct {
-	Timestamp time.Time `json:"timestamp"`
-	Time      int64     `json:"time"`
-	Fix       bool      `json:"fix"`
-	State     `json:"state"`
+	Timestamp TETTime `json:"timestamp",mapstructure:"timestamp"`
+	Time      int64   `json:"time,mapstructure:"time""`
+	Fix       bool    `json:"fix",mapstructure:"fix"`
+	State     `json:"state",mapstructure:"state"`
 
 	Raw     Point2D `json:"raw"`
 	Average Point2D `json:"avg"`
@@ -18,8 +18,8 @@ type Frame struct {
 }
 
 type Point2D struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 type EyeData struct {
@@ -57,4 +57,29 @@ func (s State) TrackingFail() bool {
 
 func (s State) TrackingLost() bool {
 	return s&stateTrackingLost != 0
+}
+
+type TETTime struct {
+	time.Time
+}
+
+const (
+	TETTimeLayout = "2006-01-02 15:04:05.999"
+)
+
+func (t TETTime) format() string {
+	return t.Format(TETTimeLayout)
+}
+
+func (t TETTime) MarshalText() ([]byte, error) {
+	return []byte(t.format()), nil
+}
+
+func (t TETTime) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + t.format() + `"`), nil
+}
+
+func (t *TETTime) UnmarshalJSON(data []byte) (err error) {
+	t.Time, err = time.ParseInLocation(`"`+TETTimeLayout+`"`, string(data), time.Local)
+	return
 }
