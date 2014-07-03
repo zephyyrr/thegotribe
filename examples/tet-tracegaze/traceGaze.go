@@ -1,10 +1,9 @@
 package main
 
 import (
-	"log"
-
 	termbox "github.com/nsf/termbox-go"
 	tet "github.com/zephyyrr/thegotribe"
+	"log"
 )
 
 const (
@@ -28,15 +27,16 @@ func main() {
 		log.Printf("Heartbeat Interval: %d", hb.(float64))
 	}
 	termbox.Clear(0, termbox.ColorWhite) //Set bg to white.
-	et.OnGaze = func(frame tet.Frame) {
-		log.Println(frame)
-		if frame.TrackingGaze() {
-			termbox.Clear(0, termbox.ColorWhite)
-			drawPoint(frame.LeftEye.Average, leftMarker)
-			drawPoint(frame.RightEye.Average, rightMarker)
-			termbox.Flush()
+	go func() {
+		for frame := range et.Frames {
+			if frame.TrackingGaze() {
+				termbox.Clear(0, termbox.ColorWhite)
+				drawPoint(frame.LeftEye.Average, leftMarker)
+				drawPoint(frame.RightEye.Average, rightMarker)
+				termbox.Flush()
+			}
 		}
-	}
+	}()
 
 	done := make(chan struct{})
 
