@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+const (
+	DefaultAddr = "localhost:6555"
+)
+
 var logger = log.New(ioutil.Discard, "[thegotribe] ", log.LstdFlags)
 
 type EyeTracker struct {
@@ -25,7 +29,7 @@ type EyeTracker struct {
 }
 
 func Create() (tracker *EyeTracker, err error) {
-	conn, err := net.Dial("tcp", "localhost:6555")
+	conn, err := net.Dial("tcp", DefaultAddr)
 	if err != nil {
 		return
 	}
