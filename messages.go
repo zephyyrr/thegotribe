@@ -62,6 +62,11 @@ const (
 	CategoryHeartbeat   Category = "heartbeat"
 )
 
+const (
+	RequestGet = "get"
+	RequestSet = "set"
+)
+
 type Status int
 
 func (s Status) Error() string {
